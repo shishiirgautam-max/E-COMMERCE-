@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anveshan Premium Shop</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+:root{
+--navy:#001f3f;
+--light:#f8f9fa;
+--white:#ffffff;
+--success:#28a745;
+--messenger:#0084ff;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI', sans-serif;}
+body{background:var(--light);padding-bottom:80px; color: #333;}
+
+.header{ background:var(--navy); color:#fff; padding:15px; display:flex; justify-content:space-between; align-items:center; position: sticky; top:0; z-index:1000; }
+.search-box-wrapper { display: flex; background: white; border-radius: 20px; padding: 5px 15px; width: 60%; align-items: center; }
+.search-box-wrapper input { border: none; outline: none; width: 100%; font-size: 13px; color: #333; }
+.search-box-wrapper i { color: var(--navy); font-size: 14px; }
+
+/* PRODUCTS */
+.products{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:10px; }
+.card{ background:var(--white); padding:10px; border-radius:12px; position:relative; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+.card img{width:100%;height:130px;object-fit:contain}
+.discount{ position:absolute; top:8px; left:8px; background:#ff4d4d; color:#fff; font-size:10px; padding:3px 6px; border-radius:4px; font-weight:bold;}
+
+/* FREE DELIVERY BADGE */
+.free-del { position:absolute; top:30px; left:8px; background:var(--success); color:#fff; font-size:9px; padding:2px 5px; border-radius:4px; font-weight:bold; }
+
+.wish-btn{ position:absolute; top:8px; right:8px; color:#ccc; font-size:18px; cursor:pointer; }
+.wish-btn.active{ color: #ff4757; }
+.price{color:var(--navy);font-weight:700; font-size: 1.1rem; margin-top:5px;}
+
+/* BUTTONS */
+.btn{ padding:10px; border:none; margin-top:5px; width:100%; cursor:pointer; border-radius:6px; font-weight: 600; font-size: 14px; }
+.cart-btn{background:var(--navy); color:white;}
+.buy-btn{background:var(--success); color:white;}
+
+/* MAP SEARCH BOX */
+.map-search-bar { display: flex; gap: 5px; margin-bottom: 10px; }
+.map-search-bar input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 5px; }
+.map-search-bar button { background: var(--navy); color: white; border: none; padding: 0 10px; border-radius: 5px; }
+
+.msg-fab {
+ position: fixed; bottom: 85px; right: 20px;
+ background: var(--messenger); color: white;
+ width: 55px; height: 55px; border-radius: 50%;
+ display: flex; align-items: center; justify-content: center;
+ box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 2500; cursor: pointer;
+}
+
+.nav{ position:fixed; bottom:0; width:100%; background:var(--white); display:flex; justify-content:space-around; padding:12px 0; box-shadow: 0 -2px 15px rgba(0,0,0,0.1); z-index: 1000; }
+.nav-item{text-align:center; font-size:11px; cursor:pointer; color: var(--navy); opacity: 0.6;}
+.nav-item.active-nav{opacity: 1; font-weight: bold;}
+.nav-item i{display:block; font-size:22px; margin-bottom:2px;}
+
+.screen{display:none; animation: fadeIn 0.3s;}
+.active{display:block}
+@keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
+.profile-scroll{ padding:15px; max-width: 500px; margin: auto; }
+.acc-card{ background:var(--white); padding:20px; border-radius:15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom:15px; text-align:center; }
+.stat-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin: 15px 0; }
+.stat-box{ background:#f8f9fa; padding:10px; border-radius:8px; font-size:11px; }
+.stat-box b{ display:block; color:var(--navy); font-size:15px; }
+
+.menu-item{ display:flex; align-items:center; padding:15px; background:white; margin-bottom:8px; border-radius:10px; cursor:pointer; font-size:14px; font-weight:500; border: 1px solid #eee; }
+.menu-item i{ margin-right:15px; color: var(--navy); }
+
+.form-group{ margin-bottom:15px; text-align:left; position: relative; }
+.form-group label{ font-size:12px; font-weight:bold; color:var(--navy); margin-bottom:5px; display:block; }
+.form-group input{ width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; outline:none; }
+.toggle-pass { position: absolute; right: 12px; top: 12px; color: #888; cursor: pointer; }
+
+#chat-panel{ 
+ display:none; position:fixed; bottom:0; left:0; width:100%; height:80vh; 
+ background:white; z-index:3000; flex-direction:column; 
+ border-radius: 20px 20px 0 0; box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
+}
+.chat-header{ background:var(--navy); color:white; padding:15px; display:flex; justify-content: space-between; align-items:center; border-radius: 20px 20px 0 0; }
+.chat-msgs{ flex:1; padding:15px; overflow-y:auto; background:#f4f4f4; display: flex; flex-direction: column; }
+.msg-bubble{ padding:10px 15px; border-radius:15px; margin-bottom:10px; max-width:80%; font-size:14px; line-height: 1.4; word-wrap: break-word; }
+.msg-sent{ background:var(--navy); color:white; align-self:flex-end; }
+.msg-received{ background:white; color: #333; align-self:flex-start; border: 1px solid #ddd; }
+
+.modal{ display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.7); }
+.modal-content{ background:white; margin:15% auto; padding:20px; width:90%; max-width:400px; border-radius:15px; overflow-y: auto; max-height: 80vh;}
+#map{ height:180px; width:100%; margin:10px 0; border-radius:10px; }
+
+.order-item { text-align: left; border-bottom: 1px solid #eee; padding: 10px 0; font-size: 13px; }
+
+@media(min-width:1024px){ .products{grid-template-columns:repeat(6,1fr);} }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h3>Anveshan</h3> 
+    <div class="search-box-wrapper">
+        <input type="text" id="prodSearch" placeholder="Search products..." oninput="filterProducts()">
+        <i class="fa fa-search"></i>
+    </div>
+</div>
+
+<div class="msg-fab" onclick="openSupport()">
+ <i class="fa fa-comment-dots" style="font-size: 24px;"></i>
+</div>
+
+<div id="home" class="screen active">
+ <div id="greet" style="padding:15px; font-weight:bold; color:var(--navy);"></div>
+ <div class="products" id="grid"></div>
+</div>
+
+<div id="cart" class="screen">
+ <div id="cartItems" style="padding:15px;"></div>
+ <div id="checkoutBox" style="position:fixed; bottom:75px; width:100%; background:white; padding:15px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #eee;">
+ <b>Total: <span id="cartTotalText" style="color:var(--navy);">Rs.0</span></b>
+ <button class="btn buy-btn" style="width:auto; padding:10px 25px;" onclick="handleCheckout()">Checkout</button>
+ </div>
+</div>
+
+<div id="profile" class="screen">
+ <div class="profile-scroll">
+ <div id="auth-section" class="acc-card">
+ <div id="login-box">
+ <h2 style="color:var(--navy); margin-bottom:20px;">Account Login</h2>
+ <div class="form-group"><input type="tel" id="loginPhone" placeholder="Phone Number"></div>
+ <div class="form-group">
+    <input type="password" id="loginPass" placeholder="Password">
+    <i class="fa fa-eye toggle-pass" onclick="togglePassVisibility('loginPass')"></i>
+ </div>
+ <button class="btn cart-btn" onclick="handleLogin()">Login</button>
+ <p style="margin-top:15px; font-size:13px;">
+ <a href="#" onclick="toggleAuth('forgot')" style="color:var(--navy);">Forgot Password?</a> | 
+ <a href="#" onclick="toggleAuth('signup')" style="color:green; font-weight:bold;">Join Anveshan</a>
+ </p>
+ </div>
+ <div id="signup-box" style="display:none;">
+ <h2>Create Account</h2>
+ <div class="form-group"><input type="tel" id="regPhone" placeholder="Nepal Phone Number"></div>
+ <div class="form-group">
+    <input type="password" id="regPass" placeholder="Create Password">
+    <i class="fa fa-eye toggle-pass" onclick="togglePassVisibility('regPass')"></i>
+ </div>
+ <button class="btn buy-btn" onclick="handleSignup()">Sign Up</button>
+ <p style="margin-top:10px;"><a href="#" onclick="toggleAuth('login')">Back to Login</a></p>
+ </div>
+ </div>
+
+ <div id="user-view" style="display:none;">
+ <div class="acc-card">
+ <div style="position:relative; display:inline-block;">
+ <img id="userImg" src="https://via.placeholder.com/100" style="width:100px; height:100px; border-radius:50%; border:3px solid var(--navy); object-fit:cover;">
+ <input type="file" id="photoInp" style="display:none;" onchange="updatePhoto(event)">
+ <button onclick="document.getElementById('photoInp').click()" style="position:absolute; bottom:0; right:0; background:var(--navy); color:white; border:none; border-radius:50%; width:30px; height:30px;"><i class="fa fa-camera"></i></button>
+ </div>
+ <h3 id="dispName" style="margin-top:10px;">User Name</h3>
+ <p id="dispPhone" style="color:gray; font-size:13px;">---</p>
+ <div class="stat-grid">
+ <div class="stat-box"><b><span id="orderCount">0</span></b>Orders</div>
+ <div class="stat-box"><b>Rs.<span id="totalSpent">0</span></b>Spent</div>
+ <div class="stat-box"><b><span id="wishCount">0</span></b>Wishlist</div>
+ </div>
+ </div>
+ <div id="view-mode">
+ <div class="menu-item" onclick="toggleEdit(true)"><i class="fa fa-user-edit"></i> Edit Profile Name & Address</div>
+ <div class="menu-item" onclick="showOrdersModal()"><i class="fa fa-box-open"></i> My Orders</div>
+ <div class="menu-item" onclick="showWishlistModal()"><i class="fa fa-heart"></i> My Wishlist</div>
+ <div class="menu-item" style="color:red;" onclick="handleLogout()"><i class="fa fa-power-off"></i> Logout Account</div>
+ </div>
+ <div id="edit-mode" style="display:none;" class="acc-card">
+ <div class="form-group"><label>Full Name</label><input type="text" id="editName"></div>
+ <div class="form-group"><label>Home Address</label><input type="text" id="editAddr"></div>
+ <button class="btn buy-btn" onclick="saveProfile()">Save Changes</button>
+ <button class="btn" style="background:#eee; color:#333;" onclick="toggleEdit(false)">Cancel</button>
+ </div>
+ </div>
+ </div>
+</div>
+
+<div id="orderModal" class="modal">
+ <div class="modal-content">
+ <h3 style="color:var(--navy); margin-bottom:10px;">Order Detail</h3>
+ <div class="form-group"><label>Name</label><input type="text" id="ordName"></div>
+ <div class="form-group"><label>Phone</label><input type="tel" id="ordContact"></div>
+ <div class="map-search-bar">
+    <input type="text" id="locSearchInp" placeholder="Search area...">
+    <button onclick="mapSearch()"><i class="fa fa-search"></i></button>
+ </div>
+ <div id="map"></div>
+ <div class="form-group"><label>Total</label><input type="text" id="ordPrice" readonly style="background:#f9f9f9;"></div>
+ <div style="display:flex; gap:10px;">
+ <button class="btn buy-btn" onclick="finishOrder()">Confirm</button>
+ <button class="btn" style="background:#ccc" onclick="closeOrder()">Cancel</button>
+ </div>
+ </div>
+</div>
+
+<div id="historyModal" class="modal">
+    <div class="modal-content">
+        <h3 style="color:var(--navy); margin-bottom:15px;">Order History</h3>
+        <div id="orderHistoryList"></div>
+        <button class="btn cart-btn" onclick="closeHistory()">Close</button>
+    </div>
+</div>
+
+<div id="chat-panel">
+ <div class="chat-header">Support <i class="fa fa-times" onclick="closeSupport()" style="cursor:pointer"></i></div>
+ <div class="chat-msgs" id="chatMsgs"></div>
+ <div style="padding:15px; display:flex; gap:10px; background: white; border-top: 1px solid #eee;">
+ <input type="text" id="chatInp" placeholder="Type here..." style="flex:1; padding:10px; border:1px solid #ddd; border-radius:20px;">
+ <button onclick="sendChat()" class="btn cart-btn" style="width:auto; margin:0; padding:10px 20px;">Send</button>
+ </div>
+</div>
+
+<div class="nav">
+ <div class="nav-item active-nav" onclick="showScreen('home', this)"><i class="fa fa-home"></i>Home</div>
+ <div class="nav-item" onclick="showScreen('cart', this)"><i class="fa fa-shopping-basket"></i>Cart (<span id="count">0</span>)</div>
+ <div class="nav-item" onclick="showScreen('profile', this)"><i class="fa fa-user"></i>Account</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD7AXnOa6CusjMsHChecFMvN2GegWIyIMM",
+  authDomain: "sushi-e-commerce.firebaseapp.com",
+  projectId: "sushi-e-commerce",
+  storageBucket: "sushi-e-commerce.firebasestorage.app",
+  messagingSenderId: "553326758025",
+  appId: "1:553326758025:web:18dd07c5a78a7eeb805e58",
+  measurementId: "G-8W5D38SVRS"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+let activeUser = null;
+let cart = [];
+let wishlist = [];
+let map, marker;
+
+const products = [
+ {id:1, name:"Wireless Gaming Mouse", price:2200, disc:15, img:"https://via.placeholder.com/200"},
+ {id:2, name:"Bluetooth Headphone", price:3500, disc:10, img:"https://via.placeholder.com/200"},
+ {id:3, name:"1TB External SSD", price:8500, disc:5, img:"https://via.placeholder.com/200"}
+];
+
+// AUTH OBSERVER (Persistent Login)
+auth.onAuthStateChanged(user => {
+  if (user) {
+    db.ref('users/' + user.uid).on('value', (snapshot) => {
+      activeUser = snapshot.val();
+      if(activeUser) {
+        activeUser.uid = user.uid;
+        loadDashboard();
+        fetchOrderHistory();
+        loadChatMessages();
+      }
+    });
+  } else {
+    activeUser = null;
+    document.getElementById('auth-section').style.display = 'block';
+    document.getElementById('user-view').style.display = 'none';
+  }
+});
+
+function init(){
+ let hr = new Date().getHours();
+ let greet = (hr < 12) ? "Namaste! Good Morning! ☀️" : "Namaste! Good Evening! 🌙";
+ document.getElementById('greet').innerText = greet;
+ renderProducts(products);
+}
+
+function renderProducts(items){
+ const grid = document.getElementById('grid');
+ grid.innerHTML = "";
+ items.forEach(p => {
+ let final = Math.floor(p.price - (p.price * p.disc / 100));
+ let isFav = wishlist.find(x => x.id === p.id) ? 'active' : '';
+ grid.innerHTML += `
+ <div class="card">
+ <div class="discount">${p.disc}% OFF</div>
+ <div class="free-del">FREE DELIVERY</div>
+ <i class="fa fa-heart wish-btn ${isFav}" onclick="toggleWish(${p.id}, this)"></i>
+ <img src="${p.img}">
+ <h4 style="font-size:14px; margin-top:10px;">${p.name}</h4>
+ <div class="price">Rs.${final}</div>
+ <button class="btn cart-btn" onclick="addCart(${p.id})">Add to Cart</button>
+ <button class="btn buy-btn" onclick="buyNow(${final})">Buy Now</button>
+ </div>`;
+ });
+}
+
+function handleLogin(){
+ let ph = document.getElementById('loginPhone').value + "@anveshan.com";
+ let pw = document.getElementById('loginPass').value;
+ auth.signInWithEmailAndPassword(ph, pw).catch(err => alert("Login Failed: " + err.message));
+}
+
+function handleSignup(){
+ let ph = document.getElementById('regPhone').value;
+ let pw = document.getElementById('regPass').value;
+ if(ph.length < 10) return alert("Enter valid phone number");
+
+ auth.createUserWithEmailAndPassword(ph + "@anveshan.com", pw).then(cred => {
+    return db.ref('users/' + cred.user.uid).set({
+      phone: ph,
+      name: "Valued Customer",
+      addr: "",
+      img: "https://via.placeholder.com/100"
+    });
+ }).then(() => {
+    alert("Account Created!");
+    toggleAuth('login');
+ }).catch(err => alert(err.message));
+}
+
+function handleLogout() { auth.signOut(); }
+
+function loadDashboard(){
+ document.getElementById('auth-section').style.display = 'none';
+ document.getElementById('user-view').style.display = 'block';
+ document.getElementById('dispName').innerText = activeUser.name;
+ document.getElementById('dispPhone').innerText = activeUser.phone;
+ document.getElementById('editName').value = activeUser.name;
+ document.getElementById('editAddr').value = activeUser.addr;
+}
+
+function saveProfile(){
+ let name = document.getElementById('editName').value;
+ let addr = document.getElementById('editAddr').value;
+ db.ref('users/' + activeUser.uid).update({ name, addr }).then(() => {
+    toggleEdit(false);
+ });
+}
+
+// CHAT FUNCTIONS
+function openSupport(){
+ if(!activeUser) return alert("Please login to chat with support");
+ document.getElementById('chat-panel').style.display = 'flex';
+}
+function closeSupport() { document.getElementById('chat-panel').style.display = 'none'; }
+
+function sendChat(){
+ let msg = document.getElementById('chatInp').value;
+ if(!msg || !activeUser) return;
+
+ let chatData = {
+    userId: activeUser.uid,
+    userName: activeUser.name,
+    text: msg,
+    timestamp: Date.now(),
+    type: 'user'
+ };
+
+ db.ref('chats/' + activeUser.uid).push(chatData);
+ document.getElementById('chatInp').value = "";
+}
+
+function loadChatMessages(){
+ db.ref('chats/' + activeUser.uid).on('value', snapshot => {
+    let html = "";
+    snapshot.forEach(child => {
+        let m = child.val();
+        let cls = m.type === 'user' ? 'msg-sent' : 'msg-received';
+        html += `<div class="msg-bubble ${cls}">${m.text}</div>`;
+    });
+    let panel = document.getElementById('chatMsgs');
+    panel.innerHTML = html;
+    panel.scrollTop = panel.scrollHeight;
+ });
+}
+
+// UI HELPERS
+function togglePassVisibility(id){
+    let inp = document.getElementById(id);
+    inp.type = inp.type === "password" ? "text" : "password";
+}
+
+function buyNow(price){
+ if(!activeUser) { alert("Please login first!"); showScreen('profile'); return; }
+ document.getElementById('orderModal').style.display = 'block';
+ document.getElementById('ordPrice').value = price;
+ document.getElementById('ordName').value = activeUser.name;
+ document.getElementById('ordContact').value = activeUser.phone;
+ 
+ setTimeout(() => {
+    if(!map) {
+        map = L.map('map').setView([27.7172, 85.3240], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        marker = L.marker([27.7172, 85.3240], {draggable: true}).addTo(map);
+    }
+ }, 300);
+}
+
+function finishOrder(){
+ let loc = marker.getLatLng();
+ let priceVal = document.getElementById('ordPrice').value;
+ let orderData = {
+    userId: activeUser.uid,
+    name: document.getElementById('ordName').value,
+    total: priceVal,
+    lat: loc.lat,
+    lng: loc.lng,
+    date: new Date().toLocaleString()
+ };
+
+ db.ref('orders').push(orderData).then(() => {
+    alert("Order Successful! We will contact you soon.");
+    closeOrder();
+ });
+}
+
+function fetchOrderHistory(){
+    db.ref('orders').orderByChild('userId').equalTo(activeUser.uid).on('value', snapshot => {
+        let count = 0;
+        let total = 0;
+        let html = "";
+        snapshot.forEach(child => {
+            let o = child.val();
+            count++;
+            total += parseInt(o.total);
+            html += `<div class="order-item">
+                        <b>Date:</b> ${o.date}<br>
+                        <b>Amount:</b> Rs.${o.total}
+                      </div>`;
+        });
+        document.getElementById('orderCount').innerText = count;
+        document.getElementById('totalSpent').innerText = total;
+        document.getElementById('orderHistoryList').innerHTML = html || "<p>No orders yet.</p>";
+    });
+}
+
+function showOrdersModal() { document.getElementById('historyModal').style.display = 'block'; }
+function closeHistory() { document.getElementById('historyModal').style.display = 'none'; }
+
+function filterProducts(){
+    let q = document.getElementById('prodSearch').value.toLowerCase();
+    renderProducts(products.filter(p => p.name.toLowerCase().includes(q)));
+}
+function toggleWish(id, el){
+    let idx = wishlist.findIndex(x => x.id === id);
+    if(idx === -1){ wishlist.push(products.find(p => p.id === id)); el.classList.add('active'); }
+    else { wishlist.splice(idx, 1); el.classList.remove('active'); }
+    document.getElementById('wishCount').innerText = wishlist.length;
+}
+function showWishlistModal(){ alert("Wishlist items: " + wishlist.length); }
+function toggleAuth(type){
+ document.getElementById('login-box').style.display = (type==='login')?'block':'none';
+ document.getElementById('signup-box').style.display = (type==='signup')?'block':'none';
+}
+function toggleEdit(on){
+ document.getElementById('view-mode').style.display = on ? 'none' : 'block';
+ document.getElementById('edit-mode').style.display = on ? 'block' : 'none';
+}
+function closeOrder(){ document.getElementById('orderModal').style.display = 'none'; }
+function addCart(id){ cart.push(products.find(p => p.id === id)); updateCart(); }
+function updateCart(){
+    document.getElementById('count').innerText = cart.length;
+    let div = document.getElementById('cartItems');
+    let total = 0;
+    div.innerHTML = cart.length === 0 ? "<p>Empty Cart</p>" : cart.map(p => {
+        total += p.price;
+        return `<div style="padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between;">
+                    <span>${p.name}</span>
+                    <b>Rs.${p.price}</b>
+                </div>`;
+    }).join('');
+    document.getElementById('cartTotalText').innerText = "Rs." + total;
+}
+function showScreen(id, el){
+ document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+ document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
+ document.getElementById(id).classList.add('active');
+ if(el) el.classList.add('active-nav');
+}
+async function mapSearch(){
+    let q = document.getElementById('locSearchInp').value;
+    let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
+    let data = await res.json();
+    if(data.length > 0){
+        let latlng = [data[0].lat, data[0].lon];
+        map.setView(latlng, 15);
+        marker.setLatLng(latlng);
+    }
+}
+init();
+</script>
+</body>
+</html>
