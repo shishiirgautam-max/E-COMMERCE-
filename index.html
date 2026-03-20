@@ -20,6 +20,28 @@
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI', sans-serif;}
 body{background:var(--light);padding-bottom:80px; color: #333;}
 
+/* LOADING ANIMATION STYLES */
+#loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--navy);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
 .header{ background:var(--navy); color:#fff; padding:15px; display:flex; justify-content:space-between; align-items:center; position: sticky; top:0; z-index:1000; }
 .search-box-wrapper { display: flex; background: white; border-radius: 20px; padding: 5px 15px; width: 60%; align-items: center; }
 .search-box-wrapper input { border: none; outline: none; width: 100%; font-size: 13px; color: #333; }
@@ -101,6 +123,11 @@ body{background:var(--light);padding-bottom:80px; color: #333;}
 </head>
 <body>
 
+<div id="loading-overlay">
+    <div class="spinner"></div>
+    <p style="margin-top:10px; color:var(--navy); font-weight:600;">Processing...</p>
+</div>
+
 <div class="header">
     <h3>Anveshan</h3> 
     <div class="search-box-wrapper">
@@ -139,12 +166,12 @@ body{background:var(--light);padding-bottom:80px; color: #333;}
  <button class="btn cart-btn" onclick="handleLogin()">Login</button>
  <p style="margin-top:15px; font-size:13px;">
  <a href="#" onclick="toggleAuth('forgot')" style="color:var(--navy);">Forgot Password?</a> | 
- <a href="#" onclick="toggleAuth('signup')" style="color:green; font-weight:bold;">Join Anveshan</a>
+ <a href="#" onclick="toggleAuth('signup')" style="color:green; font-weight:bold;">Create Account</a>
  </p>
  </div>
  <div id="signup-box" style="display:none;">
  <h2>Create Account</h2>
- <div class="form-group"><input type="tel" id="regPhone" placeholder="Nepal Phone Number"></div>
+ <div class="form-group"><input type="tel" id="regPhone" placeholder="Phone Number"></div>
  <div class="form-group">
     <input type="password" id="regPass" placeholder="Create Password">
     <i class="fa fa-eye toggle-pass" onclick="togglePassVisibility('regPass')"></i>
@@ -257,7 +284,7 @@ const products = [
  {id:3, name:"1TB External SSD", price:8500, disc:5, img:"https://via.placeholder.com/200"}
 ];
 
-// AUTH OBSERVER (Persistent Login)
+// AUTH OBSERVER (Stay Logged In Feature)
 auth.onAuthStateChanged(user => {
   if (user) {
     db.ref('users/' + user.uid).on('value', (snapshot) => {
@@ -267,6 +294,8 @@ auth.onAuthStateChanged(user => {
         loadDashboard();
         fetchOrderHistory();
         loadChatMessages();
+        // AUTO-NAVIGATE TO HOME IF ALREADY LOGGED IN
+        showScreen('home', document.querySelector('.nav-item'));
       }
     });
   } else {
@@ -279,7 +308,7 @@ auth.onAuthStateChanged(user => {
 function init(){
  let hr = new Date().getHours();
  let greet = (hr < 12) ? "Namaste! Good Morning! ☀️" : "Namaste! Good Evening! 🌙";
- document.getElementById('greet').innerText = greet;
+ if(document.getElementById('greet')) document.getElementById('greet').innerText = greet;
  renderProducts(products);
 }
 
@@ -303,18 +332,39 @@ function renderProducts(items){
  });
 }
 
+// PERMANENT LOGIN
 function handleLogin(){
  let ph = document.getElementById('loginPhone').value + "@anveshan.com";
  let pw = document.getElementById('loginPass').value;
- auth.signInWithEmailAndPassword(ph, pw).catch(err => alert("Login Failed: " + err.message));
+ 
+ document.getElementById('loading-overlay').style.display = 'flex';
+
+ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+ .then(() => {
+    return auth.signInWithEmailAndPassword(ph, pw);
+ })
+ .then(() => {
+    document.getElementById('loading-overlay').style.display = 'none';
+ })
+ .catch(err => {
+    document.getElementById('loading-overlay').style.display = 'none';
+    alert("Login Failed: " + err.message);
+ });
 }
 
+// PERMANENT SIGNUP
 function handleSignup(){
  let ph = document.getElementById('regPhone').value;
  let pw = document.getElementById('regPass').value;
  if(ph.length < 10) return alert("Enter valid phone number");
 
- auth.createUserWithEmailAndPassword(ph + "@anveshan.com", pw).then(cred => {
+ document.getElementById('loading-overlay').style.display = 'flex';
+
+ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+ .then(() => {
+    return auth.createUserWithEmailAndPassword(ph + "@anveshan.com", pw);
+ })
+ .then(cred => {
     return db.ref('users/' + cred.user.uid).set({
       phone: ph,
       name: "Valued Customer",
@@ -322,9 +372,13 @@ function handleSignup(){
       img: "https://via.placeholder.com/100"
     });
  }).then(() => {
-    alert("Account Created!");
+    document.getElementById('loading-overlay').style.display = 'none';
+    alert("Account Saved Permanently!");
     toggleAuth('login');
- }).catch(err => alert(err.message));
+ }).catch(err => {
+    document.getElementById('loading-overlay').style.display = 'none';
+    alert(err.message);
+ });
 }
 
 function handleLogout() { auth.signOut(); }
@@ -346,7 +400,6 @@ function saveProfile(){
  });
 }
 
-// CHAT FUNCTIONS
 function openSupport(){
  if(!activeUser) return alert("Please login to chat with support");
  document.getElementById('chat-panel').style.display = 'flex';
@@ -380,10 +433,9 @@ function loadChatMessages(){
     let panel = document.getElementById('chatMsgs');
     panel.innerHTML = html;
     panel.scrollTop = panel.scrollHeight;
- });
+});
 }
 
-// UI HELPERS
 function togglePassVisibility(id){
     let inp = document.getElementById(id);
     inp.type = inp.type === "password" ? "text" : "password";
