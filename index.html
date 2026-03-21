@@ -20,6 +20,20 @@
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI', sans-serif;}
 body{background:var(--light);padding-bottom:80px; color: #333;}
 
+/* NEW: Typewriter Cursor Animation */
+#greet {
+    min-height: 1.5em;
+    display: inline-block;
+    border-right: 2px solid var(--navy);
+    white-space: nowrap;
+    overflow: hidden;
+    animation: blink 0.7s step-end infinite;
+}
+@keyframes blink {
+    from, to { border-color: transparent }
+    50% { border-color: var(--navy); }
+}
+
 /* LOADING ANIMATION STYLES */
 #loading-overlay {
     display: none;
@@ -171,7 +185,7 @@ body{background:var(--light);padding-bottom:80px; color: #333;}
  </div>
  <div id="signup-box" style="display:none;">
  <h2>Create Account</h2>
- <div class="form-group"><input type="tel" id="regPhone" placeholder="Phone Number"></div>
+ <div class="form-group"><input type="tel" id="regPhone" placeholder="98XXXXXXXX / 97XXXXXXXX" maxlength="10"></div>
  <div class="form-group">
     <input type="password" id="regPass" placeholder="Create Password">
     <i class="fa fa-eye toggle-pass" onclick="togglePassVisibility('regPass')"></i>
@@ -284,7 +298,6 @@ const products = [
  {id:3, name:"1TB External SSD", price:8500, disc:5, img:"https://via.placeholder.com/200"}
 ];
 
-// AUTH OBSERVER (Stay Logged In Feature)
 auth.onAuthStateChanged(user => {
   if (user) {
     db.ref('users/' + user.uid).on('value', (snapshot) => {
@@ -294,7 +307,6 @@ auth.onAuthStateChanged(user => {
         loadDashboard();
         fetchOrderHistory();
         loadChatMessages();
-        // AUTO-NAVIGATE TO HOME IF ALREADY LOGGED IN
         showScreen('home', document.querySelector('.nav-item'));
       }
     });
@@ -305,11 +317,49 @@ auth.onAuthStateChanged(user => {
   }
 });
 
+// INITIALIZE: Load Persistent Data
 function init(){
- let hr = new Date().getHours();
- let greet = (hr < 12) ? "Namaste! Good Morning! ☀️" : "Namaste! Good Evening! 🌙";
- if(document.getElementById('greet')) document.getElementById('greet').innerText = greet;
- renderProducts(products);
+    // Typewriter Greeting
+    let hr = new Date().getHours();
+    let fullText = (hr < 12) ? "Namaste! Good Morning! ☀️" : "Namaste! Good Evening! 🌙";
+    let i = 0;
+    const greetElem = document.getElementById('greet');
+    greetElem.innerText = "";
+    
+    function typing() {
+        if (i < fullText.length) {
+            greetElem.innerText += fullText.charAt(i);
+            i++;
+            setTimeout(typing, 100);
+        } else {
+            greetElem.style.borderRight = "none";
+        }
+    }
+    typing();
+
+    // LOAD SAVED DATA
+    const savedCart = localStorage.getItem('anveshan_cart');
+    const savedWish = localStorage.getItem('anveshan_wishlist');
+    
+    if(savedCart) cart = JSON.parse(savedCart);
+    if(savedWish) wishlist = JSON.parse(savedWish);
+
+    renderProducts(products);
+    updateCart();
+    document.getElementById('wishCount').innerText = wishlist.length;
+}
+
+function updatePhoto(event) {
+    const file = event.target.files[0];
+    if (file && activeUser) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64Img = e.target.result;
+            document.getElementById('userImg').src = base64Img;
+            db.ref('users/' + activeUser.uid).update({ img: base64Img });
+        };
+        reader.readAsDataURL(file);
+    }
 }
 
 function renderProducts(items){
@@ -332,33 +382,36 @@ function renderProducts(items){
  });
 }
 
-// PERMANENT LOGIN
 function handleLogin(){
  let ph = document.getElementById('loginPhone').value + "@anveshan.com";
  let pw = document.getElementById('loginPass').value;
  
- document.getElementById('loading-overlay').style.display = 'flex';
+ const overlay = document.getElementById('loading-overlay');
+ overlay.style.display = 'flex';
 
  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
  .then(() => {
     return auth.signInWithEmailAndPassword(ph, pw);
  })
  .then(() => {
-    document.getElementById('loading-overlay').style.display = 'none';
+    overlay.style.display = 'none';
  })
  .catch(err => {
-    document.getElementById('loading-overlay').style.display = 'none';
+    overlay.style.display = 'none';
     alert("Login Failed: " + err.message);
  });
 }
 
-// PERMANENT SIGNUP
 function handleSignup(){
  let ph = document.getElementById('regPhone').value;
  let pw = document.getElementById('regPass').value;
- if(ph.length < 10) return alert("Enter valid phone number");
 
- document.getElementById('loading-overlay').style.display = 'flex';
+ if(!ph.match(/^(98|97)\d{8}$/)) {
+    return alert("Invalid Phone! Please use a number starting with 98 or 97 (10 digits).");
+ }
+
+ const overlay = document.getElementById('loading-overlay');
+ overlay.style.display = 'flex';
 
  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
  .then(() => {
@@ -372,11 +425,11 @@ function handleSignup(){
       img: "https://via.placeholder.com/100"
     });
  }).then(() => {
-    document.getElementById('loading-overlay').style.display = 'none';
-    alert("Account Saved Permanently!");
+    overlay.style.display = 'none';
+    alert("Account Saved Successfully!");
     toggleAuth('login');
  }).catch(err => {
-    document.getElementById('loading-overlay').style.display = 'none';
+    overlay.style.display = 'none';
     alert(err.message);
  });
 }
@@ -388,6 +441,7 @@ function loadDashboard(){
  document.getElementById('user-view').style.display = 'block';
  document.getElementById('dispName').innerText = activeUser.name;
  document.getElementById('dispPhone').innerText = activeUser.phone;
+ document.getElementById('userImg').src = activeUser.img || "https://via.placeholder.com/100";
  document.getElementById('editName').value = activeUser.name;
  document.getElementById('editAddr').value = activeUser.addr;
 }
@@ -457,6 +511,12 @@ function buyNow(price){
  }, 300);
 }
 
+function handleCheckout(){
+    if(cart.length === 0) return alert("Your cart is empty!");
+    let total = cart.reduce((sum, p) => sum + p.price, 0);
+    buyNow(total);
+}
+
 function finishOrder(){
  let loc = marker.getLatLng();
  let priceVal = document.getElementById('ordPrice').value;
@@ -471,6 +531,10 @@ function finishOrder(){
 
  db.ref('orders').push(orderData).then(() => {
     alert("Order Successful! We will contact you soon.");
+    // Clear Cart after success
+    cart = [];
+    localStorage.removeItem('anveshan_cart');
+    updateCart();
     closeOrder();
  });
 }
@@ -502,12 +566,22 @@ function filterProducts(){
     let q = document.getElementById('prodSearch').value.toLowerCase();
     renderProducts(products.filter(p => p.name.toLowerCase().includes(q)));
 }
+
+// PERSISTENT WISHLIST logic
 function toggleWish(id, el){
     let idx = wishlist.findIndex(x => x.id === id);
-    if(idx === -1){ wishlist.push(products.find(p => p.id === id)); el.classList.add('active'); }
-    else { wishlist.splice(idx, 1); el.classList.remove('active'); }
+    if(idx === -1){ 
+        wishlist.push(products.find(p => p.id === id)); 
+        el.classList.add('active'); 
+    }
+    else { 
+        wishlist.splice(idx, 1); 
+        el.classList.remove('active'); 
+    }
+    localStorage.setItem('anveshan_wishlist', JSON.stringify(wishlist));
     document.getElementById('wishCount').innerText = wishlist.length;
 }
+
 function showWishlistModal(){ alert("Wishlist items: " + wishlist.length); }
 function toggleAuth(type){
  document.getElementById('login-box').style.display = (type==='login')?'block':'none';
@@ -518,20 +592,42 @@ function toggleEdit(on){
  document.getElementById('edit-mode').style.display = on ? 'block' : 'none';
 }
 function closeOrder(){ document.getElementById('orderModal').style.display = 'none'; }
-function addCart(id){ cart.push(products.find(p => p.id === id)); updateCart(); }
+
+// PERSISTENT CART logic
+function addCart(id){ 
+    cart.push(products.find(p => p.id === id)); 
+    localStorage.setItem('anveshan_cart', JSON.stringify(cart));
+    updateCart(); 
+}
+
+function removeCartItem(index){
+    cart.splice(index, 1);
+    localStorage.setItem('anveshan_cart', JSON.stringify(cart));
+    updateCart();
+}
+
 function updateCart(){
     document.getElementById('count').innerText = cart.length;
     let div = document.getElementById('cartItems');
     let total = 0;
-    div.innerHTML = cart.length === 0 ? "<p>Empty Cart</p>" : cart.map(p => {
-        total += p.price;
-        return `<div style="padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between;">
-                    <span>${p.name}</span>
-                    <b>Rs.${p.price}</b>
-                </div>`;
-    }).join('');
+    
+    if(cart.length === 0){
+        div.innerHTML = "<p style='text-align:center; padding:20px; color:gray;'>Your cart is empty.</p>";
+    } else {
+        div.innerHTML = cart.map((p, index) => {
+            total += p.price;
+            return `<div style="padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <span style="display:block; font-size:14px; font-weight:600;">${p.name}</span>
+                            <b style="color:var(--navy);">Rs.${p.price}</b>
+                        </div>
+                        <i class="fa fa-trash-alt" style="color:red; cursor:pointer;" onclick="removeCartItem(${index})"></i>
+                    </div>`;
+        }).join('');
+    }
     document.getElementById('cartTotalText').innerText = "Rs." + total;
 }
+
 function showScreen(id, el){
  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
