@@ -20,7 +20,7 @@
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI', sans-serif;}
 body{background:var(--light);padding-bottom:80px; color: #333;}
 
-/* NEW: Typewriter Cursor Animation */
+/* Typewriter Cursor Animation */
 #greet {
     min-height: 1.5em;
     display: inline-block;
@@ -61,6 +61,19 @@ body{background:var(--light);padding-bottom:80px; color: #333;}
 .search-box-wrapper input { border: none; outline: none; width: 100%; font-size: 13px; color: #333; }
 .search-box-wrapper i { color: var(--navy); font-size: 14px; }
 
+/* Home Screen Search Style */
+.home-search-container { padding: 0 15px 15px 15px; }
+.home-search-bar { 
+    display: flex; 
+    align-items: center; 
+    background: white; 
+    padding: 10px 15px; 
+    border-radius: 10px; 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
+}
+.home-search-bar input { border: none; outline: none; width: 100%; font-size: 15px; }
+.home-search-bar i { color: var(--navy); margin-right: 10px; }
+
 /* PRODUCTS */
 .products{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:10px; }
 .card{ background:var(--white); padding:10px; border-radius:12px; position:relative; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
@@ -83,14 +96,6 @@ body{background:var(--light);padding-bottom:80px; color: #333;}
 .map-search-bar { display: flex; gap: 5px; margin-bottom: 10px; }
 .map-search-bar input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 5px; }
 .map-search-bar button { background: var(--navy); color: white; border: none; padding: 0 10px; border-radius: 5px; }
-
-.msg-fab {
- position: fixed; bottom: 85px; right: 20px;
- background: var(--messenger); color: white;
- width: 55px; height: 55px; border-radius: 50%;
- display: flex; align-items: center; justify-content: center;
- box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 2500; cursor: pointer;
-}
 
 .nav{ position:fixed; bottom:0; width:100%; background:var(--white); display:flex; justify-content:space-around; padding:12px 0; box-shadow: 0 -2px 15px rgba(0,0,0,0.1); z-index: 1000; }
 .nav-item{text-align:center; font-size:11px; cursor:pointer; color: var(--navy); opacity: 0.6;}
@@ -144,18 +149,18 @@ body{background:var(--light);padding-bottom:80px; color: #333;}
 
 <div class="header">
     <h3>Anveshan</h3> 
-    <div class="search-box-wrapper">
-        <input type="text" id="prodSearch" placeholder="Search products..." oninput="filterProducts()">
-        <i class="fa fa-search"></i>
-    </div>
-</div>
-
-<div class="msg-fab" onclick="openSupport()">
- <i class="fa fa-comment-dots" style="font-size: 24px;"></i>
 </div>
 
 <div id="home" class="screen active">
  <div id="greet" style="padding:15px; font-weight:bold; color:var(--navy);"></div>
+ 
+ <div class="home-search-container">
+    <div class="home-search-bar">
+        <i class="fa fa-search"></i>
+        <input type="text" id="homeSearch" placeholder="Find what you need..." oninput="filterProducts('home')">
+    </div>
+ </div>
+
  <div class="products" id="grid"></div>
 </div>
 
@@ -214,6 +219,7 @@ body{background:var(--light);padding-bottom:80px; color: #333;}
  <div class="menu-item" onclick="toggleEdit(true)"><i class="fa fa-user-edit"></i> Edit Profile Name & Address</div>
  <div class="menu-item" onclick="showOrdersModal()"><i class="fa fa-box-open"></i> My Orders</div>
  <div class="menu-item" onclick="showWishlistModal()"><i class="fa fa-heart"></i> My Wishlist</div>
+ <div class="menu-item" id="adminPanelLink" style="display:none; color:var(--success);" onclick="alert('Admin Panel Connected: Check Console Log for incoming messages!')"><i class="fa fa-shield-halved"></i> Admin Dashboard Enabled</div>
  <div class="menu-item" style="color:red;" onclick="handleLogout()"><i class="fa fa-power-off"></i> Logout Account</div>
  </div>
  <div id="edit-mode" style="display:none;" class="acc-card">
@@ -264,6 +270,7 @@ body{background:var(--light);padding-bottom:80px; color: #333;}
 <div class="nav">
  <div class="nav-item active-nav" onclick="showScreen('home', this)"><i class="fa fa-home"></i>Home</div>
  <div class="nav-item" onclick="showScreen('cart', this)"><i class="fa fa-shopping-basket"></i>Cart (<span id="count">0</span>)</div>
+ <div class="nav-item" onclick="openSupport()"><i class="fa fa-comment-dots"></i>Message</div>
  <div class="nav-item" onclick="showScreen('profile', this)"><i class="fa fa-user"></i>Account</div>
 </div>
 
@@ -307,6 +314,10 @@ auth.onAuthStateChanged(user => {
         loadDashboard();
         fetchOrderHistory();
         loadChatMessages();
+        // Trigger Admin Listener if user is Shishir (CEO)
+        if(activeUser.phone === "9800000000" || activeUser.name.toLowerCase().includes("shishir")) {
+            setupAdminListener();
+        }
         showScreen('home', document.querySelector('.nav-item'));
       }
     });
@@ -317,9 +328,10 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-// INITIALIZE: Load Persistent Data
 function init(){
-    // Typewriter Greeting
+    if (Notification.permission !== "granted") {
+        Notification.requestPermission();
+    }
     let hr = new Date().getHours();
     let fullText = (hr < 12) ? "Namaste! Good Morning! ☀️" : "Namaste! Good Evening! 🌙";
     let i = 0;
@@ -337,7 +349,6 @@ function init(){
     }
     typing();
 
-    // LOAD SAVED DATA
     const savedCart = localStorage.getItem('anveshan_cart');
     const savedWish = localStorage.getItem('anveshan_wishlist');
     
@@ -531,7 +542,6 @@ function finishOrder(){
 
  db.ref('orders').push(orderData).then(() => {
     alert("Order Successful! We will contact you soon.");
-    // Clear Cart after success
     cart = [];
     localStorage.removeItem('anveshan_cart');
     updateCart();
@@ -562,12 +572,18 @@ function fetchOrderHistory(){
 function showOrdersModal() { document.getElementById('historyModal').style.display = 'block'; }
 function closeHistory() { document.getElementById('historyModal').style.display = 'none'; }
 
-function filterProducts(){
-    let q = document.getElementById('prodSearch').value.toLowerCase();
-    renderProducts(products.filter(p => p.name.toLowerCase().includes(q)));
+function filterProducts(source){
+    let query = "";
+    if(source === 'header') {
+        query = document.getElementById('prodSearch').value.toLowerCase();
+        document.getElementById('homeSearch').value = query; 
+    } else {
+        query = document.getElementById('homeSearch').value.toLowerCase();
+        document.getElementById('prodSearch').value = query; 
+    }
+    renderProducts(products.filter(p => p.name.toLowerCase().includes(query)));
 }
 
-// PERSISTENT WISHLIST logic
 function toggleWish(id, el){
     let idx = wishlist.findIndex(x => x.id === id);
     if(idx === -1){ 
@@ -593,7 +609,6 @@ function toggleEdit(on){
 }
 function closeOrder(){ document.getElementById('orderModal').style.display = 'none'; }
 
-// PERSISTENT CART logic
 function addCart(id){ 
     cart.push(products.find(p => p.id === id)); 
     localStorage.setItem('anveshan_cart', JSON.stringify(cart));
@@ -634,6 +649,7 @@ function showScreen(id, el){
  document.getElementById(id).classList.add('active');
  if(el) el.classList.add('active-nav');
 }
+
 async function mapSearch(){
     let q = document.getElementById('locSearchInp').value;
     let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
@@ -644,6 +660,52 @@ async function mapSearch(){
         marker.setLatLng(latlng);
     }
 }
+
+// --- NEW: CONNECT MESSAGES TO YOU (ADMIN LOGIC) ---
+function setupAdminListener() {
+    document.getElementById('adminPanelLink').style.display = 'flex';
+    db.ref('chats').on('child_changed', (snapshot) => {
+        const lastMsgNode = snapshot.val();
+        const msgArray = Object.values(lastMsgNode);
+        const lastMsg = msgArray[msgArray.length - 1];
+
+        // If a USER sends a message, notify you
+        if(lastMsg.type === 'user' && (Date.now() - lastMsg.timestamp < 3000)) {
+            new Notification("New Anveshan Message", {
+                body: `${lastMsg.userName}: ${lastMsg.text}`,
+                icon: "https://via.placeholder.com/100"
+            });
+            console.log("CEO Alert: New Customer Message", lastMsg);
+        }
+    });
+}
+
+// --- AUTO-REPLY LOGIC ---
+function setupAutoReply() {
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            db.ref('chats/' + user.uid).limitToLast(1).on('child_added', snapshot => {
+                const msg = snapshot.val();
+                const isRecent = (Date.now() - msg.timestamp) < 5000;
+
+                if (msg.type === 'user' && isRecent) {
+                    setTimeout(() => {
+                        const replyData = {
+                            userId: "system",
+                            userName: "Anveshan Support",
+                            text: "Thank you for reaching out! A member of the Anveshan team will be with you shortly.",
+                            timestamp: Date.now(),
+                            type: 'admin'
+                        };
+                        db.ref('chats/' + user.uid).push(replyData);
+                    }, 1500); 
+                }
+            });
+        }
+    });
+}
+
+setupAutoReply();
 init();
 </script>
 </body>
